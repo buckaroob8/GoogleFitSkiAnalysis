@@ -1,4 +1,4 @@
-# GoogleFitSkiAnalysis
+# Google Fit Ski Analysis
 
 The Google Fit app collects some detailed movement data, but it doesn't present a view tailored to the activity, in this case downhill skiing.  I wanted to see top speed for runs at least and to remove distance traveled while on the lifts. My excuse or doing this is that I've never really worked with XML before so it's a minor learning experience there as well.
 
