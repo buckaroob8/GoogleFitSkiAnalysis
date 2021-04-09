@@ -2,14 +2,11 @@
 <head>
 <script>
 
-// lat/long can are assumed to be square in the ski area - no downhill skiing near the poles
-var latdegsz = 100; // meters in a latitude degree 
-var londegsz = 100; // meters in a longitude degree
 var metric = false;
 var graphx = 800;
 var graphy = 400;
 var blend = 5; // number of points for moving averages
-var textHeight = 24;
+var textHeight = 12;
 var axisWidth = 80;
 var timeTick = 300;
 var liftspeed = 5; // average lift speed in meters per second
@@ -68,9 +65,16 @@ function plot_line(ctx, gLeft, gTop, gWidth, gHeight, mint, maxt, linesz, style,
 	ctx.restore();
 }
 
+function setFontSize(ctx, sz)
+{
+	ctx.font = ctx.font.replace(/\d+px/, sz + "px");
+	console.log(ctx.font);
+}
+
 function resizeFont(ctx, sz)
 {
 	ctx.font = ctx.font.replace(/\d+px/, (parseInt(ctx.font.match(/\d+px/)) + (sz)) + "px");
+	console.log(ctx.font);
 }
 
 function plot(title, div, width, height, ar, var1, var2)
@@ -84,10 +88,11 @@ function plot(title, div, width, height, ar, var1, var2)
 	graphdiv.appendChild(canvas);
 	var ctx = canvas.getContext("2d");
 
+	setFontSize(ctx, textHeight);
 	gLeft = axisWidth;
-	gTop = textHeight;
-	gWidth = width - 2*axisWidth;
-	gHeight = height - 2 * textHeight;
+	gTop = textHeight * 2;
+	gWidth = width - 2 * axisWidth;
+	gHeight = height - 4 * textHeight;
 
 	ctx.save();
 	ctx.lineWidth = 1;
