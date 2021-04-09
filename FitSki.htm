@@ -30,29 +30,38 @@ function process()
 		return;
 	}
 
-	minlat = 
+	minlat = maxlat = minlon = maxlon = 0;
 	csv = [];
 	points = Track.getElementsByTagName("Trackpoint");
 	for (point of points) {
 		try {
 			d = point.getElementsByTagName("DistanceMeters")[0].textContent;
-			t = Date.parse(point.getElementsByTagName("Time")[0].textContent);
+			t = new Date(Date.parse(point.getElementsByTagName("Time")[0].textContent));
 			a = point.getElementsByTagName("AltitudeMeters")[0].textContent;
 			p = point.getElementsByTagName("Position")[0];
 			lat = p.getElementsByTagName("LatitudeDegrees")[0].textContent;
 			lon = p.getElementsByTagName("LongitudeDegrees")[0].textContent;
+			if (minlat == 0 && minlon == 0) {
+				minlat = maxlat = lat;
+				minlon = maxlon = lon;
+			} else {
+				if (lon < minlon) minlon = lon;
+				if (lon > maxlon) maxlon = lon;
+				if (lat < minlat) minlat = lat;
+				if (lat < maxlat) maxlat = lat;
+			}
 		} catch (err) {
 			continue;
 		}
 		csv.push( { dist:d, time:t, alt:a, lat:lat, lon:lon } );
 	}
 
-	output = "Date/Time, Distance, Altitude, Latitude, Longitude\n";
+	output = "Time, Distance, Altitude, Latitude, Longitude\n";
+	doption = { hour:"2-digit", minute:"2-digit", second:"2-digit", hour12:false, fractionalSecondDigits:3 };
 	for (row of csv) {
-		output += "" + row.time.toString() + ", " + row.dist + ", " + 
-			row.alt + ", " + row.lat + ", " + row.lon + "\n";
+		output += row.time.toLocaleTimeString(navigator.language, doption) + ", " + 
+		row.dist + ", " + row.alt + ", " + row.lat + ", " + row.lon + "\n";
 	}
-
 	data.value = output;
 
 }
@@ -62,6 +71,7 @@ function process()
 <body>
 	<b>Input:<b> paste XML data from the downhill skiing TCX file from Google Fit<br>
 	<textarea id="tcx" name="XML input" rows="4" cols="80">
+		
 	</textarea><br>
 	<button id="process" name="Process" onClick="process()">Process</button>
 	<hr>
