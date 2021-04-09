@@ -1,0 +1,73 @@
+<html>
+<head>
+<script>
+
+// lat/long can are assumed to be square in the ski area - no downhill skiing near the poles
+var latdegsz = 100; // meters in a latitude degree 
+var londegsz = 100; // meters in a longitude degree
+var liftspeed = 1; // average lift speed in meters per second
+
+function process()
+{
+	data = document.getElementById("data");
+	tcx = document.getElementById("tcx");
+	try {
+		parser = new DOMParser();
+		xml = parser.parseFromString(tcx.value,"text/xml");
+	} catch (err) {
+		data.value  = "Error parsing TCX XML.\n\n" + err.message;
+		return;
+	}
+
+	try {
+		TrainingCenterDatabase = xml.getElementsByTagName("TrainingCenterDatabase")[0];
+		Activities = TrainingCenterDatabase.getElementsByTagName("Activities")[0];
+		Activity = Activities.getElementsByTagName("Activity")[0];
+		Lap = Activity.getElementsByTagName("Lap")[0];
+		Track = Lap.getElementsByTagName("Track")[0];
+	} catch (err) {
+		data.value  = "Can't find trackpoint list.\n\n" + err.stack;
+		return;
+	}
+
+	minlat = 
+	csv = [];
+	points = Track.getElementsByTagName("Trackpoint");
+	for (point of points) {
+		try {
+			d = point.getElementsByTagName("DistanceMeters")[0].textContent;
+			t = Date.parse(point.getElementsByTagName("Time")[0].textContent);
+			a = point.getElementsByTagName("AltitudeMeters")[0].textContent;
+			p = point.getElementsByTagName("Position")[0];
+			lat = p.getElementsByTagName("LatitudeDegrees")[0].textContent;
+			lon = p.getElementsByTagName("LongitudeDegrees")[0].textContent;
+		} catch (err) {
+			continue;
+		}
+		csv.push( { dist:d, time:t, alt:a, lat:lat, lon:lon } );
+	}
+
+	output = "Date/Time, Distance, Altitude, Latitude, Longitude\n";
+	for (row of csv) {
+		output += "" + row.time.toString() + ", " + row.dist + ", " + 
+			row.alt + ", " + row.lat + ", " + row.lon + "\n";
+	}
+
+	data.value = output;
+
+}
+
+</script>
+</head>
+<body>
+	<b>Input:<b> paste XML data from the downhill skiing TCX file from Google Fit<br>
+	<textarea id="tcx" name="XML input" rows="4" cols="80">
+	</textarea><br>
+	<button id="process" name="Process" onClick="process()">Process</button>
+	<hr>
+	<b>Output:<b> CSV Conversion of <br>
+	<textarea id="data" name="CSV Output" rows="4" cols="80">
+		
+	</textarea><br>
+</body>
+</html>
