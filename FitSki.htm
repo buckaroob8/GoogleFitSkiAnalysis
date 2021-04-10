@@ -2,7 +2,7 @@
 <head>
 <script>
 
-var metric = false;
+var metric = true;
 var graphx = 800;
 var graphy = 400;
 var blend = 5; // number of points for moving averages
@@ -10,6 +10,7 @@ var textHeight = 12;
 var axisWidth = 80;
 var timeTick = 300;
 var liftspeed = 5; // average lift speed in meters per second
+var map_url = "http://worldwind27.arc.nasa.gov/wms/virtualearth?service=WMS&request=GetMap&version=1.1.1&srs=EPSG:4326&layers=ve&styles=&transparent=FALSE&format=image/png&width={width}&height={height}&bbox={w},{s},{e},{n}";
 
 function plot_line(ctx, gLeft, gTop, gWidth, gHeight, mint, maxt, linesz, style, ar, varname, leftaxis, title)
 {
@@ -68,18 +69,16 @@ function plot_line(ctx, gLeft, gTop, gWidth, gHeight, mint, maxt, linesz, style,
 function setFontSize(ctx, sz)
 {
 	ctx.font = ctx.font.replace(/\d+px/, sz + "px");
-	console.log(ctx.font);
 }
 
 function resizeFont(ctx, sz)
 {
 	ctx.font = ctx.font.replace(/\d+px/, (parseInt(ctx.font.match(/\d+px/)) + (sz)) + "px");
-	console.log(ctx.font);
 }
 
 function plot(title, div, width, height, ar, var1, var2)
 {
-	graphdiv = document.getElementById("graph");
+	graphdiv = document.getElementById(div);
 	graphdiv.innerHTML = "";
 	var canvas = document.createElement('canvas');	
 	canvas.id = div+"-plot";
@@ -157,6 +156,79 @@ function plot(title, div, width, height, ar, var1, var2)
 
 }
 
+function map_plot(bg, ctx, ar, width, height, minlat, maxlat, minlon, maxlon)
+{
+	ctx.save();
+
+	if (bg) {
+		ctx.drawImage(bg, 0, 0);
+	} 
+
+	for (lw = 4 ; lw >=2 ; lw -= 2) {
+		ctx.lineWidth = lw;
+		ctx.strokeStyle = (lw == 4) ? "white" : "black";
+		ctx.beginPath();
+		first = true;
+		for (point of ar) {
+			x = width * (point.lon - minlon) / (maxlon - minlon);
+			y = height * (maxlat - point.lat) / (maxlat - minlat); // vertial direction opposite
+			if (first) {
+				ctx.moveTo(x, y);
+				first = false;
+			} else {
+				ctx.lineTo(x, y);
+			}
+
+		}
+		ctx.stroke();
+	}
+	ctx.restore();
+}
+
+function map(div, ar, width, height) 
+{
+	mapdiv = document.getElementById(div);
+	mapdiv.innerHTML = "";
+	var canvas = document.createElement('canvas');	
+	canvas.id = div+"-map";
+	canvas.width = width;
+	canvas.height = height;
+	mapdiv.appendChild(canvas);
+	var ctx = canvas.getContext("2d");
+
+	var minlat = maxlat = minlon = maxlon = 0;
+	for (point of ar) {
+		if (minlat == 0 && minlon == 0) {
+			minlat = maxlat = point.lat;
+			minlon = maxlon = point.lon;
+		} else {
+			if (point.lon < minlon) minlon = point.lon;
+			if (point.lon > maxlon) maxlon = point.lon;
+			if (point.lat < minlat) minlat = point.lat;
+			if (point.lat > maxlat) maxlat = point.lat;
+		}
+	}
+	map_padding = 0.001;
+	minlon -= map_padding;
+	maxlon += map_padding;
+	minlat -= map_padding;
+	maxlat += map_padding;
+	map_plot(null, ctx, ar, width, height, minlat, maxlat, minlon, maxlon);
+
+	var url = map_url;
+	url = url.replace("{width}", width);
+	url = url.replace("{height}", height);
+	url = url.replace("{w}", minlon);
+	url = url.replace("{e}", maxlon);
+	url = url.replace("{s}", minlat);
+	url = url.replace("{n}", maxlat);
+
+	img = new Image;
+	img.src = url;
+	img.addEventListener('load', function() { map_plot(img, ctx, ar, width, height, minlat, maxlat, minlon, maxlon); } );
+
+}
+
 function calcGC(lat1, lon1, lat2, lon2) {
     var R = 6378137; // avg radius of earth in meters
     var dLat = lat2 * Math.PI / 180 - lat1 * Math.PI / 180;
@@ -191,7 +263,6 @@ function process()
 		return;
 	}
 
-	minlat = maxlat = minlon = maxlon = 0;
 	csv = [];
 	points = Track.getElementsByTagName("Trackpoint");
 	for (point of points) {
@@ -202,15 +273,6 @@ function process()
 			p = point.getElementsByTagName("Position")[0];
 			lat = parseFloat(p.getElementsByTagName("LatitudeDegrees")[0].textContent);
 			lon = parseFloat(p.getElementsByTagName("LongitudeDegrees")[0].textContent);
-			if (minlat == 0 && minlon == 0) {
-				minlat = maxlat = lat;
-				minlon = maxlon = lon;
-			} else {
-				if (lon < minlon) minlon = lon;
-				if (lon > maxlon) maxlon = lon;
-				if (lat < minlat) minlat = lat;
-				if (lat < maxlat) maxlat = lat;
-			}
 		} catch (err) {
 			continue;
 		}
@@ -252,7 +314,7 @@ function process()
 	data.value = output;
 	plot("Altitude / Speed Graph", "graph", graphx, graphy, csv, 
 		metric?"Meters":"Feet", metric?"KPH":"MPH");
-
+	map("map", csv, graphy, graphy)
 }
 
 </script>
