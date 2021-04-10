@@ -7,3 +7,6 @@ Some goals for the project:
 * Remove data from while on the lift and adjust total distance
 * Color code each run and show on map (well, maybe just in a blank rectangle, not a full map)
 * Animate through the runs on the map showing current speed/elevation on dashboard
+
+Screenshot so far:
+![image](https://user-images.githubusercontent.com/18042240/114284394-6598ee00-9a04-11eb-8491-97f19a483b91.png)
