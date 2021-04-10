@@ -9,4 +9,4 @@ Some goals for the project:
 * Animate through the runs on the map showing current speed/elevation on dashboard
 
 Screenshot so far:
-![image](https://user-images.githubusercontent.com/18042240/114284394-6598ee00-9a04-11eb-8491-97f19a483b91.png)
+![image](https://user-images.githubusercontent.com/18042240/114284424-a7299900-9a04-11eb-9b41-1b98ad724c79.png)
