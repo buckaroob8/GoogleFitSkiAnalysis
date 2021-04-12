@@ -22,6 +22,7 @@ function plot_line(ctx, gLeft, gTop, gWidth, gHeight, mint, maxt, linesz, style,
 		if (point[varname] < min) min = point[varname];
 		if (point[varname] > max) max = point[varname];
 	}
+	if (max == min) max = min + 1;
 
 	ctx.save();
 
@@ -30,9 +31,11 @@ function plot_line(ctx, gLeft, gTop, gWidth, gHeight, mint, maxt, linesz, style,
 	ctx.fillStyle = style;
 	ctx.textAlign = "center";
 	ctx.textBaseline = "middle";
-	ctx.fillText(title, leftaxis ? (gLeft / 2) : (gLeft + gWidth + gLeft / 2), gTop / 2);
+	ctx.fillText(title, leftaxis ? (gLeft / 2) : (gLeft + gWidth + gLeft / 2), gTop - textHeight);
 	ctx.textAlign = leftaxis ? "end" : "start";
-	steps = 10;
+	steps = Math.floor(gHeight / (2*textHeight));
+	if (steps > 10) steps = 10;
+	if (steps < 1) steps = 1;
 	for (i = 0 ; i <= steps ; i++) {
 		x = leftaxis ? gLeft : (gLeft + gWidth + 5);
 		y = gTop + gHeight - gHeight * i / steps;
@@ -79,6 +82,27 @@ function resizeFont(ctx, sz)
 
 function plot(title, div, width, height, ar, var1, var2)
 {
+	_plot(false, title, div, width, height, ar, [var1, var2]);
+}
+
+function scope(div, width, height, ar, vars)
+{
+	_plot(true, "Scope", div, width, height, ar, vars);
+}
+
+function _plot(scope, title, div, width, height, ar, vars)
+{
+	if (scope) {
+
+	} else {
+		var1 = vars[0];
+		if (vars.length > 1) {
+			var2 = vars[1];
+		} else {
+			var2 = null;
+		}
+	}
+
 	graphdiv = document.getElementById(div);
 	graphdiv.innerHTML = "";
 	var canvas = document.createElement('canvas');	
@@ -109,9 +133,19 @@ function plot(title, div, width, height, ar, var1, var2)
 	var mint = timeTick * 1000 * Math.floor(ar[0].time.getTime() / (timeTick * 1000));
 	var maxt = timeTick * 1000 * Math.floor(ar[len-1].time.getTime() / (timeTick * 1000)) + timeTick * 1000;
 	
-	plot_line(ctx, gLeft, gTop, gWidth, gHeight, mint, maxt, 2, "red", ar, var1, true, var1);
-	if (var2) {
-		plot_line(ctx, gLeft, gTop, gWidth, gHeight, mint, maxt, 2, "blue", ar, var2, false, var2);
+	if (scope) {
+		scope_pos = gTop;
+		scope_size = gHeight / vars.length;
+		if (scope_size < textHeight * 4) scope_size = textHeight * 4;
+		for (v = 0 ; v < vars.length ; v++) {
+			plot_line(ctx, gLeft, gTop + scope_size * v + textHeight, gWidth, scope_size - 2*textHeight,
+				mint, maxt, 2, "black", ar, vars[v], true, vars[v]);
+		}
+	} else {
+		plot_line(ctx, gLeft, gTop, gWidth, gHeight, mint, maxt, 2, "red", ar, var1, true, var1);
+		if (var2) {
+			plot_line(ctx, gLeft, gTop, gWidth, gHeight, mint, maxt, 2, "blue", ar, var2, false, var2);
+		}
 	}
 
 	ctx.lineWidth = "2";
@@ -230,10 +264,104 @@ function map(div, ar, width, height)
 
 }
 
+function analyze(csv)
+{
+	var runs = [];
+	var runCount = 0;
+	var startRun = true;
+	var checkLen = blend * 2;
+	var status = [];
+	for (i = 0 ; i < csv.length - checkLen ; i++) {
+		status.push({});
+		status[i].time = csv[i].time;
+
+		allAscendingAlt = true;
+		allDescendingAlt = true;
+		diff = 0;
+		for (j = i ; j < i + checkLen ; j++) {
+			diff += (csv[j+1].avgAlt - csv[j].avgAlt);
+			if (csv[j+1].avgAlt < csv[j].avgAlt && allAscendingAlt) {
+				allAscendingAlt = false;
+			}
+			if (csv[j+1].avgAlt > csv[j].avgAlt && allDescendingAlt) {
+				allDescendingAlt = false;
+			}
+		}
+		mostlyAscendingAlt = (diff > 0);
+		mostlyDescendingAlt = (diff <= 0);
+
+		status[i].allAscendingAlt = allAscendingAlt;
+		status[i].allDescendingAlt = allDescendingAlt;
+		status[i].mostlyAscendingAlt = mostlyAscendingAlt;
+		status[i].mostlyDescendingAlt = mostlyDescendingAlt;
+
+		allAscendingElev = true;
+		allDescendingElev = true;
+		diff = 0;
+		for (j = i ; j < i + checkLen ; j++) {
+			diff += (csv[j+1].elev - csv[j].elev);
+			if (csv[j+1].elev < csv[j].elev && allAscendingElev) {
+				allAscendingElev = false;
+			}
+			if (csv[j+1].elev > csv[j].elev && allDescendingElev) {
+				allDescendingElev = false;
+			}
+		}
+		mostlyAscendingElev = (diff > 0);
+		mostlyDescendingElev = (diff <= 0);
+
+		status[i].allAscendingElev = allAscendingElev;
+		status[i].allDescendingElev = allDescendingElev;
+		status[i].mostlyAscendingElev = mostlyAscendingElev;
+		status[i].mostlyDescendingElev = mostlyDescendingElev;
+
+		allAscendingVel = true;
+		allDescendingVel = true;
+		diff = 0;
+		for (j = i ; j < i + checkLen ; j++) {
+			diff += (csv[j+1].avgV - csv[j].avgV);
+			if (csv[j+1].avgV < csv[j].avgV && allAscendingVel) {
+				allAscendingVel = false;
+			}
+			if (csv[j+1].avgV > csv[j].avgV && allDescendingVel) {
+				allDescendingVel = false;
+			}
+		}
+		mostlyAscendingVel = (diff > 0);
+		mostlyDescendingVel = (diff <= 0);
+		acceleration = diff;
+
+		status[i].allAscendingVel = allAscendingVel;
+		status[i].allDescendingVel = allDescendingVel;
+		status[i].mostlyAscendingVel = mostlyAscendingVel;
+		status[i].mostlyDescendingVel = mostlyDescendingVel;
+		status[i].acceleration = acceleration;
+
+		if (startRun) {
+			// check descending and speed above lift
+			if (false) { // ascending
+				startRun = false;
+				runs[runCount].end = csv.time.getTime();
+				runCount ++;
+			}
+		} else {
+			// check ascending and speed below maximum lift
+			if (false) { // descending
+				startRun = true;
+				runs[runCount].start = csv.time.getTime();
+			}
+		}
+
+	}	
+	scope("test", graphx, 640, status, ["allAscendingAlt", "allDescendingAlt", "mostlyAscendingAlt", "mostlyDescendingAlt", 
+		"allAscendingElev", "allDescendingElev", "mostlyAscendingElev", "mostlyDescendingElev", 
+		"allAscendingVel", "allDescendingVel", "mostlyAscendingVel", "mostlyDescendingVel"]);
+	scope("test2", graphx, 200, status, ["acceleration"]);
+}
+
 function elevProcess(elev, csv)
 {
 	elevCount = 0
-	console.log(elev);
 	for (i = 0 ; i < csv.length ; i++) {
 		j = Math.floor(i / elevSkip);
 		k = i % elevSkip;
@@ -244,8 +372,18 @@ function elevProcess(elev, csv)
 				(k) * elev.results[j+1].elevation ) / elevSkip;
 		}
 	}
-	plot("Altitude Elevation Comparison", "test", graphx, graphy, csv, 
-		"avgAlt", "elev");
+	// output again with looked up elevation
+	output = "Time, Distance, Altitude, Latitude, Longitude, Average Velocity, Vertical Velocity, Great Circle, Elevation Query\n";
+	doption = { hour:"2-digit", minute:"2-digit", second:"2-digit", hour12:false, fractionalSecondDigits:3 };
+	for (row of csv) {
+		output += row.time.toLocaleTimeString(navigator.language, doption) + ", " + 
+		row.dist + ", " + row.alt + ", " + row.lat + ", " + row.lon + ", " + 
+		row.avgV + ", " + row.vertV + ", " + row.gc + ", " + row.elev + "\n";
+	}
+	data.value = output;
+
+	// plot("Altitude Elevation Comparison", "test", graphx, graphy, csv, "avgAlt", "elev");
+	analyze(csv);
 }
 
 function elevQuery(obj, csv)
@@ -352,8 +490,9 @@ function process()
 			elevLookup.locations.push({latitude:row.lat, longitude:row.lon});
 		}
 	}
-	elevQuery(elevLookup, csv);
 	data.value = output;
+
+	elevQuery(elevLookup, csv);
 	plot("Altitude / Speed Graph", "graph", graphx, graphy, csv, 
 		metric?"Meters":"Feet", metric?"KPH":"MPH");
 	map("map", csv, graphy, graphy); // 400 seems to be about the maximum size this server allows
@@ -6142,7 +6281,8 @@ function process()
 	</textarea><br>
 
 	<div id="graph"></div>
-	<div id="map"></div>
 	<div id="test"></div>
+	<div id="test2"></div>
+	<div id="map"></div>
 </body>
 </html>
