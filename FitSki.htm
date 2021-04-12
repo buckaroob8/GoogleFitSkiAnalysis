@@ -10,7 +10,7 @@ var elevSkip = blend; // reduce number of points sent to query
 var textHeight = 12;
 var axisWidth = 80;
 var timeTick = 300;
-var liftspeed = 5; // average lift speed in meters per second
+var liftSpeed = 5; // average lift speed in meters per second
 var map_url = "http://worldwind27.arc.nasa.gov/wms/virtualearth?service=WMS&request=GetMap&version=1.1.1&srs=EPSG:4326&layers=ve&styles=&transparent=FALSE&format=image/png&width={width}&height={height}&bbox={w},{s},{e},{n}";
 
 function plot_line(ctx, gLeft, gTop, gWidth, gHeight, mint, maxt, linesz, style, ar, varname, leftaxis, title)
@@ -315,26 +315,21 @@ function analyze(csv)
 		status[i].mostlyAscendingElev = mostlyAscendingElev;
 		status[i].mostlyDescendingElev = mostlyDescendingElev;
 
-		allAscendingVel = true;
-		allDescendingVel = true;
 		diff = 0;
+		tot = 0;
 		for (j = i ; j < i + checkLen ; j++) {
 			diff += (csv[j+1].avgV - csv[j].avgV);
-			if (csv[j+1].avgV < csv[j].avgV && allAscendingVel) {
-				allAscendingVel = false;
-			}
-			if (csv[j+1].avgV > csv[j].avgV && allDescendingVel) {
-				allDescendingVel = false;
-			}
+			tot += csv[j].avgV;
 		}
-		mostlyAscendingVel = (diff > 0);
-		mostlyDescendingVel = (diff <= 0);
 		acceleration = diff;
+		accelBig = (diff > 1);
+		accelSmall = (diff <= 1);
+		slowerLift = (tot / checkLen) < liftSpeed;
 
-		status[i].allAscendingVel = allAscendingVel;
-		status[i].allDescendingVel = allDescendingVel;
-		status[i].mostlyAscendingVel = mostlyAscendingVel;
-		status[i].mostlyDescendingVel = mostlyDescendingVel;
+
+		status[i].accelBig = accelBig;
+		status[i].accelSmall = accelSmall;
+		status[i].slowerLift = slowerLift;
 		status[i].acceleration = acceleration;
 
 		if (startRun) {
@@ -353,9 +348,10 @@ function analyze(csv)
 		}
 
 	}	
+
 	scope("test", graphx, 640, status, ["allAscendingAlt", "allDescendingAlt", "mostlyAscendingAlt", "mostlyDescendingAlt", 
 		"allAscendingElev", "allDescendingElev", "mostlyAscendingElev", "mostlyDescendingElev", 
-		"allAscendingVel", "allDescendingVel", "mostlyAscendingVel", "mostlyDescendingVel"]);
+		"accelBig", "accelSmall", "slowerLift"]);
 	scope("test2", graphx, 200, status, ["acceleration"]);
 }
 
