@@ -2,10 +2,11 @@
 <head>
 <script>
 
-var metric = true;
+var metric = false;
 var graphx = 800;
 var graphy = 400;
 var blend = 5; // number of points for moving averages
+var elevSkip = blend; // reduce number of points sent to query
 var textHeight = 12;
 var axisWidth = 80;
 var timeTick = 300;
@@ -229,6 +230,41 @@ function map(div, ar, width, height)
 
 }
 
+function elevProcess(elev, csv)
+{
+	elevCount = 0
+	console.log(elev);
+	for (i = 0 ; i < csv.length ; i++) {
+		j = Math.floor(i / elevSkip);
+		k = i % elevSkip;
+		if (j >= elev.results.length - 1) {
+			csv[i].elev = elev.results[elev.results.length - 1].elevation;
+		} else {
+			csv[i].elev = ((elevSkip - k) * elev.results[j].elevation + 
+				(k) * elev.results[j+1].elevation ) / elevSkip;
+		}
+	}
+	plot("Altitude Elevation Comparison", "test", graphx, graphy, csv, 
+		"avgAlt", "elev");
+}
+
+function elevQuery(obj, csv)
+{
+	var data = JSON.stringify(obj);
+	var xhr = new XMLHttpRequest();
+	var url = "https://api.open-elevation.com/api/v1/lookup";
+	xhr.open("POST", url, true);
+	xhr.setRequestHeader("Content-Type", "application/json");
+	xhr.onreadystatechange = function () {
+		if (xhr.readyState === 4 && xhr.status === 200) {
+			var json = JSON.parse(xhr.responseText);
+			elevProcess(json, csv);
+		}
+	};
+	xhr.send(data);	
+
+}
+
 function calcGC(lat1, lon1, lat2, lon2) {
     var R = 6378137; // avg radius of earth in meters
     var dLat = lat2 * Math.PI / 180 - lat1 * Math.PI / 180;
@@ -304,17 +340,23 @@ function process()
 
 	csv.splice(0, blend + 1);
 
+	elevLookup = { locations:[] };
+	elevCount = 0;
 	output = "Time, Distance, Altitude, Latitude, Longitude, Average Velocity, Vertical Velocity, Great Circle\n";
 	doption = { hour:"2-digit", minute:"2-digit", second:"2-digit", hour12:false, fractionalSecondDigits:3 };
 	for (row of csv) {
 		output += row.time.toLocaleTimeString(navigator.language, doption) + ", " + 
 		row.dist + ", " + row.alt + ", " + row.lat + ", " + row.lon + ", " + 
 		row.avgV + ", " + row.vertV + ", " + row.gc + "\n";
+		if (elevCount++ % elevSkip == 0) {
+			elevLookup.locations.push({latitude:row.lat, longitude:row.lon});
+		}
 	}
+	elevQuery(elevLookup, csv);
 	data.value = output;
 	plot("Altitude / Speed Graph", "graph", graphx, graphy, csv, 
 		metric?"Meters":"Feet", metric?"KPH":"MPH");
-	map("map", csv, graphy, graphy)
+	map("map", csv, graphy, graphy); // 400 seems to be about the maximum size this server allows
 }
 
 </script>
@@ -6101,5 +6143,6 @@ function process()
 
 	<div id="graph"></div>
 	<div id="map"></div>
+	<div id="test"></div>
 </body>
 </html>
