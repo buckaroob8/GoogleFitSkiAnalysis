@@ -80,17 +80,17 @@ function resizeFont(ctx, sz)
 	ctx.font = ctx.font.replace(/\d+px/, (parseInt(ctx.font.match(/\d+px/)) + (sz)) + "px");
 }
 
-function plot(title, div, width, height, ar, var1, var2)
+function plot(title, div, width, height, ar, var1, var2, runs)
 {
-	_plot(false, title, div, width, height, ar, [var1, var2]);
+	_plot(false, title, div, width, height, ar, [var1, var2], runs);
 }
 
-function scope(div, width, height, ar, vars)
+function scope(div, width, height, ar, vars, runs)
 {
-	_plot(true, "Scope", div, width, height, ar, vars);
+	_plot(true, "Scope", div, width, height, ar, vars, runs);
 }
 
-function _plot(scope, title, div, width, height, ar, vars)
+function _plot(scope, title, div, width, height, ar, vars, runs)
 {
 	if (scope) {
 
@@ -132,6 +132,19 @@ function _plot(scope, title, div, width, height, ar, vars)
 	var len = ar.length;
 	var mint = timeTick * 1000 * Math.floor(ar[0].time.getTime() / (timeTick * 1000));
 	var maxt = timeTick * 1000 * Math.floor(ar[len-1].time.getTime() / (timeTick * 1000)) + timeTick * 1000;
+
+
+	ctx.lineWidth = "2";
+	ctx.strokeStyle = "#FFAAAA";
+	ctx.fillStyle = "#FFAAAA";
+	for (run of runs) {
+		x1 = gLeft + gWidth * (run.start - mint) / (maxt - mint);
+		x2 = gLeft + gWidth * (run.end - mint) / (maxt - mint);
+		ctx.beginPath();
+		ctx.rect(x1, gTop, x2 - x1, gHeight);
+		ctx.fill();
+	}
+
 	
 	if (scope) {
 		scope_pos = gTop;
@@ -268,9 +281,14 @@ function analyze(csv)
 {
 	var runs = [];
 	var runCount = 0;
-	var startRun = true;
+	var startRun = false;
 	var checkLen = blend * 2;
+	var continuousPoints = 8;
 	var status = [];
+	var lastTime = 0;
+	var allAscendingElevSetCount = 0, slowerLiftSetCount = 0;
+	var allAscendingElevClearCount = 0, slowerLiftClearCount = 0;
+
 	for (i = 0 ; i < csv.length - checkLen ; i++) {
 		status.push({});
 		status[i].time = csv[i].time;
@@ -332,27 +350,55 @@ function analyze(csv)
 		status[i].slowerLift = slowerLift;
 		status[i].acceleration = acceleration;
 
+
+		if (allAscendingElev) {
+			allAscendingElevSetCount++;
+			allAscendingElevClearCount = 0;
+		} else {
+			allAscendingElevSetCount = 0;
+			allAscendingElevClearCount++;
+		}
+		if (slowerLift) {
+			slowerLiftSetCount++;
+			slowerLiftClearCount = 0;			
+		} else {
+			slowerLiftSetCount = 0;
+			slowerLiftClearCount++;
+		}
+
+
+		lastTime = csv[i].time.getTime();
 		if (startRun) {
 			// check descending and speed above lift
-			if (false) { // ascending
+			if (allAscendingElevSetCount > continuousPoints &&
+				slowerLiftSetCount > continuousPoints) { // ascending
 				startRun = false;
-				runs[runCount].end = csv.time.getTime();
+				runs[runCount].end = lastTime;
 				runCount ++;
 			}
 		} else {
 			// check ascending and speed below maximum lift
-			if (false) { // descending
+			if (allAscendingElevSetCount < continuousPoints &&
+				slowerLiftSetCount < continuousPoints) { // descending
 				startRun = true;
-				runs[runCount].start = csv.time.getTime();
+				runs.push({ start: lastTime});
 			}
 		}
-
 	}	
+	if (startRun) {
+		startRun = false;
+		runs[runCount].end = lastTime;
+		runCount ++;
+	}
+
+	plot("Altitude / Speed Graph", "graph", graphx, graphy, csv, 
+		metric?"Meters":"Feet", metric?"KPH":"MPH", runs);
+	map("map", csv, graphy, graphy); // 400 seems to be about the maximum size this server allows
 
 	scope("test", graphx, 640, status, ["allAscendingAlt", "allDescendingAlt", "mostlyAscendingAlt", "mostlyDescendingAlt", 
 		"allAscendingElev", "allDescendingElev", "mostlyAscendingElev", "mostlyDescendingElev", 
-		"accelBig", "accelSmall", "slowerLift"]);
-	scope("test2", graphx, 200, status, ["acceleration"]);
+		"accelBig", "accelSmall", "slowerLift"], runs);
+	scope("test2", graphx, 200, status, ["acceleration"], runs);
 }
 
 function elevProcess(elev, csv)
@@ -489,9 +535,6 @@ function process()
 	data.value = output;
 
 	elevQuery(elevLookup, csv);
-	plot("Altitude / Speed Graph", "graph", graphx, graphy, csv, 
-		metric?"Meters":"Feet", metric?"KPH":"MPH");
-	map("map", csv, graphy, graphy); // 400 seems to be about the maximum size this server allows
 }
 
 </script>
